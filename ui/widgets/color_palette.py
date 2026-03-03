@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QSizePolicy
 from PyQt6.QtGui import QColor, QPainter, QPen, QBrush
-from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QRect
 
 # 20 fixed colors
 PALETTE_COLORS = [
@@ -10,6 +10,7 @@ PALETTE_COLORS = [
     "#FFFF00",  # Yellow
     "#00FF00",  # Lime
     "#008000",  # Green
+
     "#00FFFF",  # Cyan
     "#0000FF",  # Blue
     "#8000FF",  # Violet
@@ -27,10 +28,9 @@ PALETTE_COLORS = [
 ]
 
 #Pixels
-
 SWATCH_SIZE = 24
 SWATCH_MARGIN = 3
-PALETTE_HEIGHT = SWATCH_SIZE + SWATCH_MARGIN * 2 + 24
+PALETTE_HEIGHT = SWATCH_SIZE + SWATCH_MARGIN * 2
 
 class ColorPaletteWidget(QWidget):
     """
@@ -51,6 +51,7 @@ class ColorPaletteWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setStyleSheet("background-color: #2B2B2B;")
         self.setToolTip("Select shapes first, then click a color to reassign")
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def set_has_selection(self, has_selection: bool):
         """Called by main window when selection changes."""

@@ -13,7 +13,6 @@ class ColorLayerDialog(QDialog):
 
     Modal dialog for editing a ColorLayer's operation settings.
     Opened by double-clicking a color node in the layer tree.
-    Engraving-specific fields show/hide based on selected operation.
     """
 
     def __init__(self, color_layer: ColorLayer, parent=None):
@@ -32,15 +31,15 @@ class ColorLayerDialog(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Colored header
-        header = QWidget()
-        header.setFixedHeight(52)
         color = self.color_layer.color
-        # Text color based on brightness of background
         qc = QColor(color)
         lum = 0.299 * qc.red() + 0.587 * qc.green() + 0.114 * qc.blue()
+        # Text color based on brightness of background
         text_color = "#000000" if lum > 140 else "FFFFFF"
-        header.setStyleSheet(f"background-color: {color};")
 
+        header = QWidget()
+        header.setFixedHeight(52)
+        header.setStyleSheet(f"background-color: {color};")
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(16, 0, 16, 0)
 
@@ -89,9 +88,7 @@ class ColorLayerDialog(QDialog):
         self.combo_operation.setStyleSheet(self._input_style())
         self.combo_operation.currentTextChanged.connect(self._on_operation_changed)
         form.addRow("Operation: ", self.combo_operation)
-
-        sep1 = self._separator()
-        form.addRow(sep1)
+        form.addRow(self._separator())
 
         # Feed rate
         self.spin_feed = QDoubleSpinBox()

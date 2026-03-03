@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QWidget, QGridLayout
-from PyQt6.QtGui import QPen, QBrush, QColor, QWheelEvent, QPainter, QPainterPath, QFont, QPainterPathStroker
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem
+from PyQt6.QtGui import QPen, QBrush, QColor, QWheelEvent, QPainter, QPainterPath, QPainterPathStroker
+from PyQt6.QtCore import Qt, pyqtSignal, QRectF
 from core.document import ColorLayer, Shape
 
 # Work area dimensions in mm (default A4)
@@ -9,102 +9,10 @@ WORK_H_MM = 297
 PIXELS_PER_MM = 3  # scale factor: 1mm = 3px on screen
 # Zoom limits
 ZOOM_MIN = 0.2   # can zoom out to see 5x the work area
+
 ZOOM_MAX = 5.0   # can zoom in to 5x the work area size
 
 SELECTION_COLOR = "#FF6B00"
-
-class RulerWidget(QWidget):
-    """
-        A ruler that draws mm tick marks along one axis.
-        Stays in sync with the canvas viewport via update_from_transform().
-    """
-
-    RULER_SIZE = 20 # thickness in px
-
-    def __init__(self, orientation: str, parent=None):
-        """Orientation is 'horizontal' or 'vertical' """
-
-        super().__init__(parent)
-        self.orientation = orientation
-        self._offset = 0.0 # scene origin in viewport pixels
-        self._scale = 1.0 # pixels per scene pixel (zoom factor)
-
-        if orientation == "horizontal":
-            self.setFixedHeight(self.RULER_SIZE)
-        else:
-            self.setFixedWidth(self.RULER_SIZE)
-
-        self.setStyleSheet("background-color: #D0D0D0;")
-
-    def update_from_transform(self, offset: float, scale: float):
-        """Called by the canvas whenever zoom or pan changes"""
-
-        self._offset = offset
-        self._scale = scale
-        self.update() # rerender
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        size = self.width() if self.orientation == "horizontal" else self.height()
-
-        # background
-        painter.fillRect(self.rect(), QColor("#D0D0D0"))
-
-        # pixel per mm | Chooses tick spacing based on zoom level
-        ppm = PIXELS_PER_MM * self._scale
-
-        major_mm = 10
-        minor_mm = 5
-
-        pen_major = QPen(QColor("#222222"), 1)
-        pen_minor = QPen(QColor("#777777"), 1)
-        pen_text = QPen(QColor("#111111"), 1)
-
-        font = QFont("Helvetica", 7)
-        painter.setFont(font)
-
-        # first tick position
-        start_mm = -self._offset / (PIXELS_PER_MM * self._scale)
-        end_mm = start_mm + size / (PIXELS_PER_MM * self._scale)
-
-        first_tick = int(start_mm / minor_mm) * minor_mm
-
-        tick = first_tick
-        while tick <= end_mm + minor_mm:
-            pos = self._offset + tick * PIXELS_PER_MM * self._scale
-
-            is_major = (round(tick) % major_mm == 0)  # CHANGED: simple modulo check for 10mm
-
-            if self.orientation == "horizontal":
-                tick_h = 12 if is_major else 6
-                painter.setPen(pen_major if is_major else pen_minor)
-                painter.drawLine(int(pos), self.RULER_SIZE - tick_h, int(pos), self.RULER_SIZE)
-                if is_major and 0 <= pos <= size:
-                    painter.setPen(pen_text)
-                    painter.drawText(int(pos) + 2, self.RULER_SIZE - 10, f"{round(tick)}")
-            else:
-                tick_h = 12 if is_major else 6
-                painter.setPen(pen_major if is_major else pen_minor)
-                painter.drawLine(self.RULER_SIZE - tick_h, int(pos), self.RULER_SIZE, int(pos))
-                if is_major and 0 <= pos <= size:
-                    painter.setPen(pen_text)
-                    painter.save()
-                    painter.translate(self.RULER_SIZE - 10, int(pos) - 2)
-                    painter.rotate(-90)
-                    painter.drawText(0, 0, f"{round(tick)}")
-                    painter.restore()
-
-            tick = round(tick + minor_mm, 6)
-
-        painter.setPen(QPen(QColor("#999999"), 1))
-        if self.orientation == "horizontal":
-            painter.drawLine(0, self.RULER_SIZE - 1, self.width(), self.RULER_SIZE - 1)
-        else:
-            painter.drawLine(self.RULER_SIZE - 1, 0, self.RULER_SIZE - 1, self.height())
-
-        painter.end()
 
 class CAMCanvas(QGraphicsView):
 
@@ -156,8 +64,7 @@ class CAMCanvas(QGraphicsView):
 
         self.scene.setSceneRect(-20, -20, w + 40, h + 40)
 
-    # ── Keyboard ──────────────────────────────────────────────────────────────
-    # Toggle between Select and Drag modes
+    # ── Mode toggle ───────────────────────────────────────────────────────────
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Space:
             self._select_mode = not self._select_mode
@@ -199,6 +106,7 @@ class CAMCanvas(QGraphicsView):
     #     else:
     #         super().mousePressEvent(event)
 
+    # ── Mouse events ──────────────────────────────────────────────────────────
     def mousePressEvent(self, event):
         if self._select_mode and event.button() == Qt.MouseButton.LeftButton:
             self._drag_start = event.pos()
@@ -206,7 +114,7 @@ class CAMCanvas(QGraphicsView):
             shift_held = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
 
             hit_id = None
-            # CHANGED: manual stroke hit test — check all items, find closest stroke
+            # manual stroke hit test — check all items, find the closest stroke
             for item in self.scene.items(scene_pos):
                 if item.data(0) is None:
                     continue
@@ -293,8 +201,7 @@ class CAMCanvas(QGraphicsView):
         # We manage selection state ourselves, so we clear QT's selection state
         self.scene.clearSelection()
 
-    # SELECTION HELPERS:
-
+    # ── Selection helpers ─────────────────────────────────────────────────────
     def _add_to_selection(self, shape_id: int):
         """Add a shape to the selection and highlight it"""
         self._selected_ids.add(shape_id)
@@ -411,58 +318,3 @@ class CAMCanvas(QGraphicsView):
 
     def px_to_mm(self, px: float) -> float:
         return px / PIXELS_PER_MM
-
-
-class CAMCanvasWithRulers(QWidget):
-    """
-    Wraps CAMCanvas with horizontal and vertical rulers.
-    Use this as the central widget instead of CAMCanvas directly.
-    """
-    def __init__(self):
-        super().__init__()
-
-        self.canvas  = CAMCanvas()
-        self.h_ruler = RulerWidget("horizontal")
-        self.v_ruler = RulerWidget("vertical")
-
-        # Corner square to fill the gap between the two rulers
-        corner = QWidget()
-        corner.setFixedSize(RulerWidget.RULER_SIZE, RulerWidget.RULER_SIZE)
-        corner.setStyleSheet("background-color: #D0D0D0;")
-
-        layout = QGridLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        #        col 0          col 1
-        # row 0  corner         h_ruler
-        # row 1  v_ruler        canvas
-        layout.addWidget(corner,         0, 0)
-        layout.addWidget(self.h_ruler,   0, 1)
-        layout.addWidget(self.v_ruler,   1, 0)
-        layout.addWidget(self.canvas,    1, 1)
-
-        # Connect canvas transform signal to rulers
-        self.canvas.transform_changed.connect(self._on_transform_changed)
-
-        # Expose canvas public methods at this level for convenience
-        self.draw_color_layer  = self.canvas.draw_color_layer
-        self.draw_shape        = self.canvas.draw_shape
-        self.clear_shape       = self.canvas.clear_shape
-        self.clear_color_layer = self.canvas.clear_color_layer
-        self.redraw_shape      = self.canvas.redraw_shape
-        self.deselect_all      = self.canvas.deselect_all
-        self.select_shape      = self.canvas.select_shape
-        self.get_selected_ids  = self.canvas.get_selected_ids
-        self.fit_view          = self.canvas.fit_view
-        self.reset_zoom        = self.canvas.reset_zoom
-        self.selection_changed = self.canvas.selection_changed
-
-    def _on_transform_changed(self, ox: float, oy: float, sx: float, sy: float):
-        self.h_ruler.update_from_transform(ox, sx)
-        self.v_ruler.update_from_transform(oy, sy)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        # Push initial transform to rulers once the widget is visible
-        self.canvas._emit_transform()

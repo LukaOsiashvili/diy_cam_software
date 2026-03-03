@@ -6,14 +6,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
 
-from ui.canvas import CAMCanvasWithRulers
-from ui.layer_panel import LayerPanel
-from ui.color_layer_dialog import ColorLayerDialog
-from ui.color_palette import ColorPaletteWidget
+from ui.canvas.canvas_view import CAMCanvasWithRulers
+from ui.panels.layer_panel import LayerPanel
+from ui.dialogs.color_layer_dialog import ColorLayerDialog
+from ui.widgets.color_palette import ColorPaletteWidget
 
 from core.document import Document
-from core.importer_svg import import_svg
-from core.importer_dxf import import_dxf
+from core.importers.svg import import_svg
+from core.importers.dxf import import_dxf
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -48,19 +48,19 @@ class MainWindow(QMainWindow):
 
         self.canvas.selection_changed.connect(self._on_selection_changed)
         self.palette.color_picked.connect(self._on_color_picked)
+
     # ── Side panels ───────────────────────────────────────────────────────────
     def _build_panels(self):
-        # Layer panel — left side
+        # Shape layers' panel
         self.layer_panel = LayerPanel()
-        layer_dock = QDockWidget("Layers", self)
-        layer_dock.setWidget(self.layer_panel)
-        layer_dock.setMinimumWidth(300)
-        layer_dock.setMaximumWidth(500)
-        layer_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, layer_dock)
+        dock = QDockWidget("Layers", self)
+        dock.setWidget(self.layer_panel)
+        dock.setMinimumWidth(300)
+        dock.setMaximumWidth(500)
+        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
         # Connect layer removal signals
-        # self.layer_panel.shape_removed.connect(self._on_shape_removed)
         self.layer_panel.shapes_removed.connect(self._on_shapes_removed)
         self.layer_panel.color_layer_removed.connect(self._on_color_layer_removed)
         self.layer_panel.color_layer_settings.connect(self._on_color_layer_settings)
@@ -153,7 +153,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.status.showMessage("Ready  —  No file loaded")
 
-    # ── Slots (actions) ───────────────────────────────────────────────────────
+    # ── Import slots ──────────────────────────────────────────────────────────
     def on_import_svg(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Import SVG", "", "SVG Files (*.svg)"
@@ -212,60 +212,6 @@ class MainWindow(QMainWindow):
 
     # ── Layer panel signal handlers ───────────────────────────────────────────
 
-    def _on_shape_removed(self, shape_id: int):
-        """Remove shape from canvas and document."""
-        cl, shape = self.document.find_shape(shape_id)
-        # if shape:
-        #     self.canvas.clear_shape(shape_id)
-        #     cl.shapes.remove(shape)
-        #     if not cl.shapes:
-        #         self.document.color_layers.remove(cl)
-        if shape and cl:
-            self.canvas.clear_shape(shape_id)
-            cl.shapes.remove(shape)
-            if not cl.shapes and cl in self.document.color_layers:
-                self.document.color_layers.remove(cl)
-
-    def _on_shapes_removed(self, shape_ids: list):
-        # 1. Remove from document and canvas
-        for shape_id in shape_ids:
-            cl, shape = self.document.find_shape(shape_id)
-            if cl and shape:
-                self.canvas.clear_shape(shape_id)
-                cl.shapes.remove(shape)
-
-        # 2. Clean up empty color layers from document
-        for cl in list(self.document.color_layers):
-            if not cl.shapes:
-                self.document.color_layers.remove(cl)
-
-        # 3. Rebuild tree from document — source of truth
-        self._rebuild_layer_panel()
-
-    def _rebuild_layer_panel(self):
-        """Rebuild the entire layer panel tree from the document."""
-        self.layer_panel.tree.clear()
-        for cl in self.document.color_layers:
-            for shape in cl.shapes:
-                self.layer_panel.add_shape(cl, shape)
-
-    def _on_color_layer_removed(self, color: str):
-        """Remove entire color layer from canvas and document."""
-        for cl in list(self.document.color_layers):
-            if cl.color.upper() == color.upper():
-                self.canvas.clear_color_layer(cl)
-                self.document.color_layers.remove(cl)
-                break
-
-    def _on_color_layer_settings(self, color: str):
-        """Open settings dialog for the color layer."""
-        for cl in self.document.color_layers:
-            if cl.color.upper() == color.upper():
-                dialog = ColorLayerDialog(cl, parent=self)
-                if dialog.exec():
-                    self.layer_panel.update_color_node_label(cl)
-                return
-
     def _on_selection_changed(self, shape_ids: list):
         self._current_selection = list(shape_ids)
         self.palette.set_has_selection(len(shape_ids) > 0)
@@ -302,6 +248,62 @@ class MainWindow(QMainWindow):
         self.canvas.select_shape(shape_id, additive=False)
         self.canvas.canvas.setFocus()
 
+    def _on_shapes_removed(self, shape_ids: list):
+        # Remove from document and canvas
+        for shape_id in shape_ids:
+            cl, shape = self.document.find_shape(shape_id)
+            if cl and shape:
+                self.canvas.clear_shape(shape_id)
+                cl.shapes.remove(shape)
+
+        # Clean up empty color layers from document
+        for cl in list(self.document.color_layers):
+            if not cl.shapes:
+                self.document.color_layers.remove(cl)
+
+        # Rebuild tree from document — source of truth
+        self._rebuild_layer_panel()
+
+    def _on_color_layer_removed(self, color: str):
+        """Remove entire color layer from canvas and document."""
+        for cl in list(self.document.color_layers):
+            if cl.color.upper() == color.upper():
+                self.canvas.clear_color_layer(cl)
+                self.document.color_layers.remove(cl)
+                break
+
+    def _on_color_layer_settings(self, color: str):
+        """Open settings dialog for the color layer."""
+        for cl in self.document.color_layers:
+            if cl.color.upper() == color.upper():
+                dialog = ColorLayerDialog(cl, parent=self)
+                if dialog.exec():
+                    self.layer_panel.update_color_node_label(cl)
+                return
+
+    def _on_shape_removed(self, shape_id: int):
+        """Remove shape from canvas and document."""
+        cl, shape = self.document.find_shape(shape_id)
+        # if shape:
+        #     self.canvas.clear_shape(shape_id)
+        #     cl.shapes.remove(shape)
+        #     if not cl.shapes:
+        #         self.document.color_layers.remove(cl)
+        if shape and cl:
+            self.canvas.clear_shape(shape_id)
+            cl.shapes.remove(shape)
+            if not cl.shapes and cl in self.document.color_layers:
+                self.document.color_layers.remove(cl)
+
+    # ── View helpers ──────────────────────────────────────────────────────────
+
+    def _rebuild_layer_panel(self):
+        """Rebuild the entire layer panel tree from the document."""
+        self.layer_panel.tree.clear()
+        for cl in self.document.color_layers:
+            for shape in cl.shapes:
+                self.layer_panel.add_shape(cl, shape)
+
     def _refresh_views(self):
         """Rebuild both canvas and tree from document"""
         self.canvas.canvas.scene.clear()
@@ -311,6 +313,8 @@ class MainWindow(QMainWindow):
                 self.canvas.draw_shape(shape, cl.color)
 
         self._rebuild_layer_panel()
+
+    # ── Upcoming Slots ───────────────────────────────────────────────────────────
 
     def on_export_gcode(self):
         path, _ = QFileDialog.getSaveFileName(

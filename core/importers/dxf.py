@@ -134,7 +134,6 @@ def import_dxf(filepath: str, document: Document) -> list:
     return affected_layers
 
 def _flip_y_points(points):
-
     if not points:
         return points
     min_y = min(p[1] for p in points)
