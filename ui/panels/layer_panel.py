@@ -113,64 +113,6 @@ class LayerPanel(QWidget):
 
         self.shapes_removed.emit(shape_ids)
 
-    def add_color_layer(self, color_layer: ColorLayer):
-        """Add or refresh a color layer node and all its shapes."""
-        node = self._find_color_node(color_layer.color)
-        if node is None:
-            node = self._create_color_node(color_layer)
-        else:
-            # Refresh label in case operation changed
-            node.setText(0, color_layer.label)
-
-        for shape in color_layer.shapes:
-            self._add_shape_node(node, shape, color_layer.color)
-
-        node.setExpanded(True)
-
-    def remove_shape_node(self, shape_id: int):
-        """Remove a shape node by shape id."""
-        item = self._find_shape_node(shape_id)
-        if item is None:
-            return
-        parent = item.parent()
-        if parent:
-            parent.removeChild(item)
-            if parent.childCount() == 0:
-                self.tree.invisibleRootItem().removeChild(parent)
-
-    def select_shape_node(self, shape_id: int):
-        """Highlight the shape node matching the given id."""
-        self.tree.clearSelection()
-        item = self._find_shape_node(shape_id)
-        if item:
-            self.tree.setCurrentItem(item)
-            self.tree.scrollToItem(item)
-
-    def move_shape_node(self, shape_id: int, new_color_layer: ColorLayer):
-        """Move a shape node to a different color layer node."""
-        item = self._find_shape_node(shape_id)
-        if item is None:
-            return
-        old_parent = item.parent()
-
-        # Remove from old parent
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if old_parent:
-            old_parent.removeChild(item)
-            if old_parent.childCount() == 0:
-                self.tree.invisibleRootItem().removeChild(old_parent)
-
-        # Add to new color node
-        new_node = self._find_color_node(new_color_layer.color)
-        if new_node is None:
-            new_node = self._create_color_node(new_color_layer)
-
-        # Update color in node data and re-add
-        data["color"] = new_color_layer.color
-        item.setData(0, Qt.ItemDataRole.UserRole, data)
-        new_node.addChild(item)
-        new_node.setExpanded(True)
-
     # ── Private Helpers ─────────────────────────────────────────────────────────────
 
     def _add_shape_node(self, parent_node, shape: Shape, color: str):

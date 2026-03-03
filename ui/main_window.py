@@ -281,20 +281,6 @@ class MainWindow(QMainWindow):
                     self.layer_panel.update_color_node_label(cl)
                 return
 
-    def _on_shape_removed(self, shape_id: int):
-        """Remove shape from canvas and document."""
-        cl, shape = self.document.find_shape(shape_id)
-        # if shape:
-        #     self.canvas.clear_shape(shape_id)
-        #     cl.shapes.remove(shape)
-        #     if not cl.shapes:
-        #         self.document.color_layers.remove(cl)
-        if shape and cl:
-            self.canvas.clear_shape(shape_id)
-            cl.shapes.remove(shape)
-            if not cl.shapes and cl in self.document.color_layers:
-                self.document.color_layers.remove(cl)
-
     # ── View helpers ──────────────────────────────────────────────────────────
 
     def _rebuild_layer_panel(self):

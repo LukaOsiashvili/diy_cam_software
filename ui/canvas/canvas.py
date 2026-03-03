@@ -9,7 +9,6 @@ WORK_H_MM = 297
 PIXELS_PER_MM = 3  # scale factor: 1mm = 3px on screen
 # Zoom limits
 ZOOM_MIN = 0.2   # can zoom out to see 5x the work area
-
 ZOOM_MAX = 5.0   # can zoom in to 5x the work area size
 
 SELECTION_COLOR = "#FF6B00"
@@ -76,35 +75,6 @@ class CAMCanvas(QGraphicsView):
                 self.deselect_all()
         else:
             super().keyPressEvent(event)
-
-    # MOUSE EVENT FOR SELECTION
-    # def mousePressEvent(self, event):
-    #     if self._select_mode and event.button() == Qt.MouseButton.LeftButton:
-    #         scene_pos = self.mapToScene(event.pos())
-    #         # Use items() at point with a small tolerance instead of itemAt
-    #         items = self.scene.items(scene_pos)
-    #         # Filter to only items tagged with a shape id (skip work area rect etc.)
-    #         shape_items = [i for i in items if i.data(0) is not None]
-    #         if shape_items:
-    #             shape_id = shape_items[0].data(0)
-    #             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
-    #
-    #             if shift_held:
-    #                 if shape_id in self._selected_ids:
-    #                     self._deselect_one(shape_id)
-    #                 else:
-    #                     self._add_to_selection(shape_id)
-    #             else:
-    #                 self.deselect_all()
-    #                 self._add_to_selection(shape_id)
-    #         else:
-    #             if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
-    #                 self.deselect_all()
-    #
-    #         # Lef parent handle rubber band drag start
-    #         super().mousePressEvent(event)
-    #     else:
-    #         super().mousePressEvent(event)
 
     # ── Mouse events ──────────────────────────────────────────────────────────
     def mousePressEvent(self, event):
@@ -187,19 +157,6 @@ class CAMCanvas(QGraphicsView):
             if stroke_path.intersects(rect_path):
                 self._add_to_selection(item.data(0))
 
-    def _collect_rubber_band_selection(self, additive: bool):
-        qt_selected = [i for i in self.scene.selectedItems() if i.data(0) is not None]
-        if not qt_selected:
-            return
-
-        if not additive:
-            self.deselect_all()
-
-        for item in qt_selected:
-            self._add_to_selection(item.data(0))
-
-        # We manage selection state ourselves, so we clear QT's selection state
-        self.scene.clearSelection()
 
     # ── Selection helpers ─────────────────────────────────────────────────────
     def _add_to_selection(self, shape_id: int):

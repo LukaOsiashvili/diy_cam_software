@@ -83,7 +83,6 @@ class Document:
 
         source_cl.shapes.remove(shape)
         target_cl.shapes.append(shape)
-        shape.source = shape.source # preserve src name
 
         if not source_cl.shapes:
             self.color_layers.remove(source_cl)
